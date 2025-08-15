@@ -5,7 +5,7 @@
 // localStorage.setItem('postify_backend_url','https://ton-service.up.railway.app')
 let BACKEND_URL =
   localStorage.getItem("postify_backend_url") ||
-  "https://TON-SERVICE.up.railway.app"; // ← remplace par ton URL
+  "postify-production-a86f.up.railway.app"; // ← remplace par ton URL
 
 // ========================
 //  STATE & AUDIO
