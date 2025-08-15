@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <title>postify</title>
+        <meta name="description" content>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="stylesheet" href="assets/css/style.css">
+    </head>
+    <body>
+
+        <div class="app">
+            <!-- Panneau gauche -->
+            <aside class="left panel">
+                <!-- Branding -->
+                <div class="brand">
+                    <div class="logo"></div>
+                    <h1>Postify <span class="muted">(local)</span></h1>
+                </div>
+
+                <!-- Nouvelle playlist -->
+                <div class="section">
+                    <h2>Nouvelle playlist</h2>
+                    <div class="row">
+                        <input id="newPlaylistName" type="text"
+                            placeholder="Nom de playlist" />
+                        <button id="createPlaylistBtn">Créer</button>
+                    </div>
+                </div>
+
+                <!-- Liste playlists -->
+                <div class="section playlists">
+                    <h2>Playlists</h2>
+                    <div id="playlistList"></div>
+                </div>
+
+                <!-- Import titre -->
+                <div class="section">
+                    <h2>Importer un titre</h2>
+                    <div class="stack">
+                        <div class="pill"><label for="audioFile">+ Audio
+                                (fichier)</label><input id="audioFile"
+                                type="file" accept="audio/*,video/*" /></div>
+                        <div class="pill"><label for="coverFile">+
+                                Couverture</label><input id="coverFile"
+                                type="file" accept="image/*" /></div>
+                    </div>
+                    <div style="margin-top:8px" class="row">
+                        <input id="trackTitle" type="text"
+                            placeholder="Titre" />
+                        <input id="trackArtist" type="text"
+                            placeholder="Artiste" />
+                    </div>
+                    <div class="row">
+                        <button id="saveTrackBtn">Enregistrer le titre</button>
+                    </div>
+                    <!-- Import depuis YouTube -->
+                    <details style="margin-top:8px">
+                        <summary class="muted">Ajouter depuis YouTube
+                            (téléchargement MP3)</summary>
+                        <div class="row" style="margin-top:8px">
+                            <input id="ytUrl" type="url"
+                                placeholder="URL YouTube" />
+                        </div>
+                        <div class="row" style="margin-top:8px">
+                            <input id="ytTitle" type="text"
+                                placeholder="Titre (optionnel)" />
+                            <input id="ytArtist" type="text"
+                                placeholder="Artiste (optionnel)" />
+                        </div>
+                        <div class="row" style="margin-top:8px">
+                            <button id="downloadYtBtn">Télécharger &
+                                Ajouter</button>
+                        </div>
+                        <small class="muted">⚠️ Utilisation personnelle
+                            uniquement. Nécessite ton backend actif.</small>
+                    </details>
+                </div>
+            </aside>
+
+            <!-- Panneau principal -->
+            <main class="main panel">
+                <div class="toolbar">
+                    <input id="search" type="text"
+                        placeholder="Rechercher titres…" />
+                    <select id="playlistFilter"></select>
+                    <button id="exportBtn">Exporter</button>
+                    <label class="btn nowrap" for="importJson">Importer
+                        JSON</label>
+                    <input id="importJson" type="file" accept="application/json"
+                        hidden>
+                </div>
+                <div id="grid" class="grid"></div>
+            </main>
+        </div>
+
+        <div class="player" hidden>
+            <div class="miniCover"><img id="playerCover" alt /></div>
+            <div>
+                <div class="title" id="playerTitle">—</div>
+                <div class="muted"><span id="curTime" class="time">0:00</span> ·
+                    <span id="durTime" class="time">0:00</span></div>
+            </div>
+            <div class="controls">
+                <button id="prevBtn">⏮</button>
+                <button id="playPauseBtn">▶</button>
+                <button id="nextBtn">⏭</button>
+                <button id="stopBtn" class="danger">■</button>
+            </div>
+        </div>
+
+        <script>
+const BACKEND_URL = "https://ton-backend.onrender.com"; 
+</script>
+
+        <script src="assets/js/script.js" async defer></script>
+    </body>
+</html>
