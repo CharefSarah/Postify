@@ -228,3 +228,47 @@ button {
     height: 60vh;
   }
 }
+/* Modal */
+.modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  place-items: center;
+  z-index: 999;
+}
+.modal[aria-hidden="false"] {
+  display: grid;
+}
+.modal__overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+}
+.modal__dialog {
+  position: relative;
+  width: min(680px, 92vw);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+.modal__head,
+.modal__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 6px;
+  border-bottom: 1px solid #1c232b;
+}
+.modal__foot {
+  border-top: 1px solid #1c232b;
+  border-bottom: none;
+  margin-top: 12px;
+}
+.modal__body {
+  padding: 10px 6px;
+}
+.modal__head h3 {
+  margin: 0;
+  font-size: 18px;
+}

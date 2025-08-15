@@ -1,19 +1,24 @@
 // ========================
 //  CONFIG
 // ========================
-const BACKEND_URL = "postify-production-a86f.up.railway.app"; // ← remplace par ton URL Railway/Render
+// Tu peux surcharger en sauvegardant dans localStorage:
+// localStorage.setItem('postify_backend_url','https://ton-service.up.railway.app')
+let BACKEND_URL =
+  localStorage.getItem("postify_backend_url") ||
+  "https://TON-SERVICE.up.railway.app"; // ← remplace par ton URL
 
 // ========================
-//  STATE & HELPERS
+//  STATE & AUDIO
 // ========================
 const state = {
   tracks: [], // [{id,title,artist,type:'audio'|'stream',audioBlob?,streamUrl?,coverBlob?,playlists:[]}...]
-  playlists: ["Tous"], // 'Tous' + tes playlists
-  playlist: "Tous", // playlist active
-  query: "", // recherche
+  playlists: ["Tous"],
+  playlist: "Tous",
+  query: "",
 };
 
 const els = {
+  // grille & filtres
   grid: document.getElementById("grid"),
   search: document.getElementById("search"),
   playlistFilter: document.getElementById("playlistFilter"),
@@ -26,12 +31,6 @@ const els = {
   trackArtist: document.getElementById("trackArtist"),
   saveTrackBtn: document.getElementById("saveTrackBtn"),
 
-  // youtube
-  ytUrl: document.getElementById("ytUrl"),
-  ytTitle: document.getElementById("ytTitle"),
-  ytArtist: document.getElementById("ytArtist"),
-  downloadYtBtn: document.getElementById("downloadYtBtn"),
-
   // playlists
   newPlaylistName: document.getElementById("newPlaylistName"),
   createPlaylistBtn: document.getElementById("createPlaylistBtn"),
@@ -40,7 +39,7 @@ const els = {
   exportBtn: document.getElementById("exportBtn"),
   importJson: document.getElementById("importJson"),
 
-  // player bar
+  // player
   playerBar: document.querySelector(".player"),
   playerCover: document.getElementById("playerCover"),
   playerTitle: document.getElementById("playerTitle"),
@@ -50,6 +49,18 @@ const els = {
   playPauseBtn: document.getElementById("playPauseBtn"),
   nextBtn: document.getElementById("nextBtn"),
   stopBtn: document.getElementById("stopBtn"),
+
+  // modal YouTube
+  openYtModalBtn: document.getElementById("openYtModal"),
+  ytModal: document.getElementById("ytModal"),
+  mYtUrl: document.getElementById("mYtUrl"),
+  mTitle: document.getElementById("mTitle"),
+  mArtist: document.getElementById("mArtist"),
+  mCover: document.getElementById("mCover"),
+  mPlaylist: document.getElementById("mPlaylist"),
+  mNewPlaylist: document.getElementById("mNewPlaylist"),
+  mMsg: document.getElementById("mMsg"),
+  mSubmit: document.getElementById("mSubmit"),
 };
 
 const audio = new Audio();
@@ -66,7 +77,7 @@ function openDB() {
   if (dbPromise) return dbPromise;
   dbPromise = new Promise((resolve, reject) => {
     const req = indexedDB.open("postify-db", 2);
-    req.onupgradeneeded = (e) => {
+    req.onupgradeneeded = () => {
       const db = req.result;
       if (!db.objectStoreNames.contains("tracks")) {
         const s = db.createObjectStore("tracks", { keyPath: "id" });
@@ -74,7 +85,7 @@ function openDB() {
         s.createIndex("by_created", "createdAt", { unique: false });
       }
       if (!db.objectStoreNames.contains("meta")) {
-        const m = db.createObjectStore("meta", { keyPath: "key" });
+        db.createObjectStore("meta", { keyPath: "key" });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -92,7 +103,6 @@ async function dbGetAllTracks() {
     req.onerror = () => reject(req.error);
   });
 }
-
 async function dbPutTrack(track) {
   const db = await openDB();
   return new Promise((resolve, reject) => {
@@ -102,7 +112,6 @@ async function dbPutTrack(track) {
     tx.onerror = () => reject(tx.error);
   });
 }
-
 async function dbDeleteTrack(id) {
   const db = await openDB();
   return new Promise((resolve, reject) => {
@@ -112,7 +121,6 @@ async function dbDeleteTrack(id) {
     tx.onerror = () => reject(tx.error);
   });
 }
-
 async function dbGetMeta(key) {
   const db = await openDB();
   return new Promise((resolve, reject) => {
@@ -133,7 +141,7 @@ async function dbSetMeta(key, value) {
 }
 
 // ========================
-/* UTILS */
+//  UTILS
 // ========================
 const uuid = () =>
   "t_" +
@@ -161,11 +169,9 @@ const fileToBlob = (file) =>
 
 function filterTracks() {
   let list = state.tracks.slice();
-  // filtre playlist
   if (state.playlist && state.playlist !== "Tous") {
     list = list.filter((t) => (t.playlists || []).includes(state.playlist));
   }
-  // recherche
   const q = state.query.trim().toLowerCase();
   if (q) {
     list = list.filter(
@@ -181,10 +187,9 @@ function filterTracks() {
 //  RENDER UI
 // ========================
 function renderPlaylists() {
-  // liste gauche
+  // colonne gauche
   els.playlistList.innerHTML = "";
-  const names = state.playlists;
-  for (const name of names) {
+  for (const name of state.playlists) {
     const btn = document.createElement("button");
     btn.className = "btn";
     btn.textContent = name;
@@ -198,10 +203,9 @@ function renderPlaylists() {
     };
     els.playlistList.appendChild(btn);
   }
-
-  // select barre
+  // select toolbar
   els.playlistFilter.innerHTML = "";
-  for (const name of names) {
+  for (const name of state.playlists) {
     const opt = document.createElement("option");
     opt.value = name;
     opt.textContent = name;
@@ -233,7 +237,6 @@ function renderGrid() {
     cover.appendChild(img);
 
     cover.onclick = () => {
-      // construit la queue à partir de la liste filtrée + index du clic
       queue = list.map((x) => x.id);
       queueIndex = i;
       playCurrent();
@@ -256,7 +259,6 @@ function renderGrid() {
         : "Audio";
     sub.textContent = `${t.artist || "—"} · ${tag}`;
 
-    // actions (petit bouton supprimer)
     const row = document.createElement("div");
     row.style.display = "flex";
     row.style.gap = "6px";
@@ -298,7 +300,7 @@ function refresh() {
 }
 
 // ========================
-//  PLAYBACK
+//  LECTURE
 // ========================
 function updatePlayBtn() {
   els.playPauseBtn.textContent = audio.paused ? "▶" : "⏸";
@@ -310,7 +312,6 @@ function playCurrent() {
   const t = state.tracks.find((x) => x.id === id);
   if (!t) return;
 
-  // cover + titre
   const coverUrl = t.coverBlob ? blobUrlFrom(t.coverBlob) : "";
   els.playerCover.src = coverUrl || "";
   els.playerTitle.textContent = `${t.title || "Sans titre"}${
@@ -324,8 +325,7 @@ function playCurrent() {
     updatePlayBtn();
     return;
   }
-
-  // type 'audio' (blob local)
+  // audio local
   const url = blobUrlFrom(t.audioBlob);
   audio.src = url;
   audio.play();
@@ -333,11 +333,10 @@ function playCurrent() {
 }
 
 els.playPauseBtn.onclick = () => {
-  if (audio.src) {
-    if (audio.paused) audio.play();
-    else audio.pause();
-    updatePlayBtn();
-  }
+  if (!audio.src) return;
+  if (audio.paused) audio.play();
+  else audio.pause();
+  updatePlayBtn();
 };
 els.stopBtn.onclick = () => {
   audio.pause();
@@ -368,30 +367,26 @@ audio.addEventListener("ended", () => {
 });
 
 // ========================
-//  ADD / IMPORT
+//  AJOUT / IMPORT LOCAL
 // ========================
 async function addTrack(track) {
-  // assure un id + createdAt
   track.id = track.id || uuid();
   track.createdAt = track.createdAt || Date.now();
   track.playlists = track.playlists || [];
-
-  // normalise playlists
   if (!track.playlists.length && state.playlist !== "Tous") {
     track.playlists = [state.playlist];
   }
-
   await dbPutTrack(track);
   state.tracks.push(track);
 }
 
-els.saveTrackBtn.onclick = async () => {
-  const f = els.audioFile.files?.[0];
+els.saveTrackBtn?.addEventListener("click", async () => {
+  const f = els.audioFile?.files?.[0];
   if (!f) {
     alert("Choisis un fichier audio/vidéo.");
     return;
   }
-  const cover = els.coverFile.files?.[0];
+  const cover = els.coverFile?.files?.[0];
 
   const audioBlob = await fileToBlob(f);
   const coverBlob = cover ? await fileToBlob(cover) : null;
@@ -412,52 +407,132 @@ els.saveTrackBtn.onclick = async () => {
   await addTrack(t);
   els.trackTitle.value = "";
   els.trackArtist.value = "";
-  els.audioFile.value = "";
-  els.coverFile.value = "";
+  if (els.audioFile) els.audioFile.value = "";
+  if (els.coverFile) els.coverFile.value = "";
   refresh();
   alert("Titre importé !");
-};
+});
 
-// ----- Depuis YouTube via BACKEND : upload sur Drive -> lien stream
-els.downloadYtBtn.onclick = async () => {
-  const url = (els.ytUrl.value || "").trim();
-  const title = (els.ytTitle.value || "").trim();
-  const artist = (els.ytArtist.value || "").trim();
+// ========================
+//  MODAL YOUTUBE (URL + titre + cover + playlist)
+// ========================
+function openModal() {
+  // Remplit la liste des playlists (— Aucune —)
+  const sel = els.mPlaylist;
+  if (!sel) return;
+  sel.innerHTML = "";
+  const none = document.createElement("option");
+  none.value = "";
+  none.textContent = "— Aucune —";
+  sel.appendChild(none);
+  for (const p of state.playlists) {
+    if (p === "Tous") continue;
+    const opt = document.createElement("option");
+    opt.value = p;
+    opt.textContent = p;
+    if (state.playlist !== "Tous" && p === state.playlist) opt.selected = true;
+    sel.appendChild(opt);
+  }
+  els.mYtUrl.value = "";
+  els.mTitle.value = "";
+  els.mArtist.value = "";
+  if (els.mCover) els.mCover.value = "";
+  els.mNewPlaylist.value = "";
+  els.mMsg.textContent = "";
+  els.ytModal.hidden = false;
+  els.ytModal.setAttribute("aria-hidden", "false");
+  els.mYtUrl.focus();
+}
+function closeModal() {
+  els.ytModal.setAttribute("aria-hidden", "true");
+  els.ytModal.hidden = true;
+}
+
+els.openYtModalBtn?.addEventListener("click", openModal);
+els.ytModal?.addEventListener("click", (e) => {
+  if (
+    e.target.classList.contains("modal__overlay") ||
+    e.target.dataset.close !== undefined
+  )
+    closeModal();
+});
+document.addEventListener("keydown", (e) => {
+  if (
+    e.key === "Escape" &&
+    els.ytModal &&
+    els.ytModal.getAttribute("aria-hidden") === "false"
+  )
+    closeModal();
+});
+
+els.mSubmit?.addEventListener("click", async () => {
+  const url = (els.mYtUrl.value || "").trim();
+  const title = (els.mTitle.value || "").trim();
+  const artist = (els.mArtist.value || "").trim();
+  const chosen = els.mPlaylist.value;
+  const newP = (els.mNewPlaylist.value || "").trim();
+
   if (!url) {
-    alert("Mets une URL YouTube");
+    els.mMsg.textContent = "Entre une URL YouTube.";
     return;
   }
 
+  els.mSubmit.disabled = true;
+  els.mSubmit.textContent = "Téléchargement…";
+  els.mMsg.textContent = "";
+
   try {
+    // 1) backend => upload Drive => lien
     const resp = await fetch(`${BACKEND_URL}/download`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url, title }),
     });
     if (!resp.ok) throw new Error(await resp.text());
-    const data = await resp.json(); // { success, directLink, title, ... }
+    const data = await resp.json(); // { directLink, title, ... }
 
+    // 2) cover (optionnelle)
+    let coverBlob = null;
+    const f = els.mCover?.files?.[0];
+    if (f) coverBlob = await fileToBlob(f);
+
+    // 3) playlists
+    const pl = [];
+    if (chosen) pl.push(chosen);
+    if (newP) {
+      if (!state.playlists.includes(newP)) {
+        state.playlists.push(newP);
+        await savePlaylists();
+      }
+      pl.push(newP);
+    }
+    if (!pl.length && state.playlist && state.playlist !== "Tous") {
+      pl.push(state.playlist);
+    }
+
+    // 4) enregistre le track "stream"
     const track = {
       title: title || data.title || "Sans titre",
       artist,
       type: "stream",
       streamUrl: data.directLink,
-      coverBlob: null,
-      playlists:
-        state.playlist && state.playlist !== "Tous" ? [state.playlist] : [],
+      coverBlob,
+      playlists: pl,
     };
     await addTrack(track);
     await refresh();
 
-    els.ytUrl.value = "";
-    els.ytTitle.value = "";
-    els.ytArtist.value = "";
-    alert("Ajouté à ta bibliothèque (stocké sur Drive) !");
-  } catch (e) {
-    console.error(e);
-    alert("Échec du téléchargement / upload. Regarde la console.");
+    closeModal();
+    alert("Ajouté à ta bibliothèque (fichier sur Drive) !");
+  } catch (err) {
+    console.error(err);
+    els.mMsg.textContent =
+      "Échec du téléchargement / upload (regarde la console).";
+  } finally {
+    els.mSubmit.disabled = false;
+    els.mSubmit.textContent = "Télécharger & Ajouter";
   }
-};
+});
 
 // ========================
 //  PLAYLISTS
@@ -465,22 +540,18 @@ els.downloadYtBtn.onclick = async () => {
 async function ensurePlaylistsLoaded() {
   const saved = await dbGetMeta("playlists");
   if (saved && Array.isArray(saved) && saved.length) {
-    // garantir 'Tous' en tête
     const rest = saved.filter((x) => x !== "Tous");
     state.playlists = ["Tous", ...rest];
   } else {
-    state.playlists = ["Tous"]; // défaut
+    state.playlists = ["Tous"];
   }
-  // si playlist active n'existe plus
   if (!state.playlists.includes(state.playlist)) state.playlist = "Tous";
 }
-
 async function savePlaylists() {
   const uniq = Array.from(new Set(state.playlists));
   await dbSetMeta("playlists", uniq);
 }
-
-els.createPlaylistBtn.onclick = async () => {
+els.createPlaylistBtn?.addEventListener("click", async () => {
   const name = (els.newPlaylistName.value || "").trim();
   if (!name) return;
   if (name.toLowerCase() === "tous") {
@@ -493,12 +564,11 @@ els.createPlaylistBtn.onclick = async () => {
     els.newPlaylistName.value = "";
     refresh();
   }
-};
-
-els.playlistFilter.onchange = () => {
+});
+els.playlistFilter?.addEventListener("change", () => {
   state.playlist = els.playlistFilter.value;
   refresh();
-};
+});
 
 // ========================
 //  EXPORT / IMPORT JSON
@@ -521,8 +591,7 @@ function dataURLToBlob(dataURL) {
   return new Blob([arr], { type: mime });
 }
 
-els.exportBtn.onclick = async () => {
-  // encode blobs en dataURL pour portabilité
+els.exportBtn?.addEventListener("click", async () => {
   const out = [];
   for (const t of state.tracks) {
     const item = {
@@ -558,9 +627,9 @@ els.exportBtn.onclick = async () => {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
-};
+});
 
-els.importJson.onchange = async (e) => {
+els.importJson?.addEventListener("change", async (e) => {
   const f = e.target.files?.[0];
   if (!f) return;
   try {
@@ -603,15 +672,15 @@ els.importJson.onchange = async (e) => {
   } finally {
     e.target.value = "";
   }
-};
+});
 
 // ========================
 //  SEARCH
 // ========================
-els.search.oninput = () => {
+els.search?.addEventListener("input", () => {
   state.query = els.search.value || "";
   renderGrid();
-};
+});
 
 // ========================
 //  INIT
@@ -620,7 +689,6 @@ els.search.oninput = () => {
   await openDB();
   await ensurePlaylistsLoaded();
   state.tracks = await dbGetAllTracks();
-  // sécurité : garantir 'Tous' présent
   if (!state.playlists.includes("Tous")) state.playlists.unshift("Tous");
   refresh();
 })();
