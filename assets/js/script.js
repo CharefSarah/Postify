@@ -1,6 +1,3 @@
-const BACKEND_URL = "https://ton-backend.onrender.com"; // Remplacer par ton URL backend
-// Ici, on reprend tout le JavaScript de Postify (IndexedDB, gestion playlists, lecture, import fichier) et on ajoute :
-
 // Bouton téléchargement depuis YouTube
 const ytBtn = document.getElementById("downloadYtBtn");
 ytBtn.onclick = async () => {
