@@ -78,6 +78,28 @@ function safeName(str, fallback = "audio") {
     .slice(0, 80);
   return cleaned || fallback;
 }
+import cors from "cors";
+
+const app = express();
+
+// CORS permissif + gestion du pré-vol
+app.use(
+  cors({
+    origin: true, // accepte toutes origines (ou ['https://charefsarah.github.io'])
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type"],
+  })
+);
+
+// si tu veux être ultra-safe : handler OPTIONS explicite
+app.options("*", (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  return res.sendStatus(204);
+});
+
+app.use(express.json({ limit: "1mb" }));
 
 // GET / : ping
 app.get("/", (req, res) => {
