@@ -66,7 +66,13 @@ const drive = google.drive({ version: "v3", auth });
 
 // ---- App
 const app = express();
-app.use(cors());
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type"],
+  })
+);
 app.use(express.json({ limit: "1mb" }));
 
 // Petit helper: nom de fichier safe
@@ -78,35 +84,12 @@ function safeName(str, fallback = "audio") {
     .slice(0, 80);
   return cleaned || fallback;
 }
-import cors from "cors";
 
-const app = express();
-
-// CORS permissif + gestion du pré-vol
-app.use(
-  cors({
-    origin: true, // accepte toutes origines (ou ['https://charefsarah.github.io'])
-    methods: ["GET", "POST", "OPTIONS"],
-    allowedHeaders: ["Content-Type"],
-  })
-);
-app.options("*", (req, res) => {
-  res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  return res.sendStatus(204);
+// Logger les requêtes entrantes
+app.use((req, res, next) => {
+  console.log(`Requête reçue : ${req.method} ${req.url}`);
+  next();
 });
-
-app.use(express.json({ limit: "1mb" }));
-// si tu veux être ultra-safe : handler OPTIONS explicite
-app.options("*", (req, res) => {
-  res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  return res.sendStatus(204);
-});
-
-app.use(express.json({ limit: "1mb" }));
 
 // GET / : ping
 app.get("/", (req, res) => {
@@ -201,4 +184,10 @@ app.post("/download", async (req, res) => {
 const PORT = Number(process.env.PORT || 8080);
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`✅ Postify server listening on port ${PORT}`);
+});
+
+const resp = await fetch(`${BACKEND_URL}/download`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ url, title }),
 });

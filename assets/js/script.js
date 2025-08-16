@@ -5,7 +5,7 @@
 // localStorage.setItem('postify_backend_url','https://ton-service.up.railway.app')
 let BACKEND_URL =
   localStorage.getItem("postify_backend_url") ||
-  "postify-production-a86f.up.railway.app"; // ← remplace par ton URL
+  "postify-production-a86f.up.railway.app";
 
 // ========================
 //  STATE & AUDIO
@@ -488,7 +488,9 @@ els.mSubmit?.addEventListener("click", async () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url, title }),
     });
-    if (!resp.ok) throw new Error(await resp.text());
+    if (!resp.ok) {
+      throw new Error(`HTTP error! status: ${resp.status}`);
+    }
     const data = await resp.json(); // { directLink, title, ... }
 
     // 2) cover (optionnelle)
@@ -525,9 +527,8 @@ els.mSubmit?.addEventListener("click", async () => {
     closeModal();
     alert("Ajouté à ta bibliothèque (fichier sur Drive) !");
   } catch (err) {
-    console.error(err);
-    els.mMsg.textContent =
-      "Échec du téléchargement / upload (regarde la console).";
+    console.error("Erreur lors de la requête :", err);
+    els.mMsg.textContent = "Échec du téléchargement / upload.";
   } finally {
     els.mSubmit.disabled = false;
     els.mSubmit.textContent = "Télécharger & Ajouter";
