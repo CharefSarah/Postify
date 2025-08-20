@@ -1,21 +1,15 @@
 // ========================
 //  CONFIG
 // ========================
-// Tu peux surcharger en sauvegardant dans localStorage:
-// localStorage.setItem('postify_backend_url','https://ton-service.up.railway.app')
-// ========================
-//  CONFIG
-// ========================
+// Possibilité de surcharger via le localStorage :
+// localStorage.setItem('postify_backend_url','https://postify-production-a86f.up.railway.app')
+
 function normalizeBackendUrl(u) {
   if (!u) return "";
-  // Si l'utilisateur a mis sans protocole, on force https
-  if (!/^https?:\/\//i.test(u)) u = "https://" + u;
-  // Retire le / final
+  if (!/^https?:\/\//i.test(u)) u = "https://" + u; // force https si absent
   return u.replace(/\/+$/, "");
 }
 
-// Tu peux toujours surcharger via localStorage:
-// localStorage.setItem('postify_backend_url','https://postify-production-a86f.up.railway.app')
 let BACKEND_URL = normalizeBackendUrl(
   localStorage.getItem("postify_backend_url") ||
     "https://postify-production-a86f.up.railway.app"
@@ -162,6 +156,7 @@ const uuid = () =>
   Date.now().toString(36) +
   "_" +
   Math.floor(Math.random() * 1e6).toString(36);
+
 const fmtTime = (s) => {
   if (!isFinite(s)) return "0:00";
   s = Math.max(0, Math.floor(s));
@@ -503,7 +498,8 @@ els.mSubmit?.addEventListener("click", async () => {
       body: JSON.stringify({ url, title }),
     });
     if (!resp.ok) {
-      throw new Error(`HTTP error! status: ${resp.status}`);
+      const txt = await resp.text().catch(() => "");
+      throw new Error(`HTTP ${resp.status} ${resp.statusText} – ${txt || ""}`);
     }
     const data = await resp.json(); // { directLink, title, ... }
 
@@ -701,6 +697,7 @@ els.search?.addEventListener("input", () => {
 //  INIT
 // ========================
 (async function init() {
+  console.log("BACKEND_URL =", BACKEND_URL);
   await openDB();
   await ensurePlaylistsLoaded();
   state.tracks = await dbGetAllTracks();

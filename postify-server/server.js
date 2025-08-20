@@ -1,4 +1,5 @@
 // server.js — Backend Postify (YouTube ➜ MP3 ➜ Google Drive)
+
 import express from "express";
 import cors from "cors";
 import { google } from "googleapis";
@@ -16,7 +17,57 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, ".env") });
 
-// ---- Lire GOOGLE_CREDENTIALS (JSON) ou GOOGLE_CREDENTIALS_B64 (base64)
+// ---- App
+const app = express();
+
+// ========================
+//  CORS — DOIT ÊTRE TOUT EN HAUT
+// ========================
+const ALLOWED_ORIGINS = [
+  "https://charefsarah.github.io",
+  "http://localhost:5500",
+  "http://127.0.0.1:5500",
+];
+
+app.use((req, res, next) => {
+  res.header("Vary", "Origin");
+  next();
+});
+
+app.use(
+  cors({
+    origin(origin, cb) {
+      if (!origin) return cb(null, true); // Postman/cURL
+      cb(null, ALLOWED_ORIGINS.includes(origin));
+    },
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type"], // ajouter "x-postify-key" si clé d'accès
+    credentials: false, // true seulement si cookies
+  })
+);
+
+// Laisse le package 'cors' répondre aux preflights
+app.options("*", cors());
+
+// ========================
+//  PARSING
+// ========================
+app.use(express.json({ limit: "1mb" }));
+
+// ========================
+//  Sécurité par clé (optionnel, à activer plus tard)
+// ========================
+// const ACCESS_KEY = process.env.ACCESS_KEY || "";
+// app.use((req, res, next) => {
+//   if (req.method === "OPTIONS" || req.path === "/" || req.path === "/healthz") return next();
+//   const key = req.get("x-postify-key");
+//   if (!ACCESS_KEY || (key && key === ACCESS_KEY)) return next();
+//   return res.status(401).json({ error: "Unauthorized" });
+// });
+
+// ========================
+//  Lecture des credentials Google
+// ========================
 let rawCreds = process.env.GOOGLE_CREDENTIALS;
 if (!rawCreds && process.env.GOOGLE_CREDENTIALS_B64) {
   try {
@@ -24,16 +75,11 @@ if (!rawCreds && process.env.GOOGLE_CREDENTIALS_B64) {
       process.env.GOOGLE_CREDENTIALS_B64,
       "base64"
     ).toString("utf8");
-  } catch (_) {
-    /* ignore */
-  }
+  } catch (_) {}
 }
 if (!rawCreds) {
   console.error(
     "❌ Variable GOOGLE_CREDENTIALS (ou GOOGLE_CREDENTIALS_B64) manquante"
-  );
-  console.error(
-    "Astuce: mets .env à côté de server.js, ou définis les variables dans Railway/Render."
   );
   process.exit(1);
 }
@@ -64,17 +110,6 @@ const auth = new google.auth.GoogleAuth({
 });
 const drive = google.drive({ version: "v3", auth });
 
-// ---- App
-const app = express();
-app.use(
-  cors({
-    origin: "*",
-    methods: ["GET", "POST", "OPTIONS"],
-    allowedHeaders: ["Content-Type"],
-  })
-);
-app.use(express.json({ limit: "1mb" }));
-
 // Petit helper: nom de fichier safe
 function safeName(str, fallback = "audio") {
   const cleaned = (str || fallback)
@@ -86,18 +121,18 @@ function safeName(str, fallback = "audio") {
 }
 
 // Logger les requêtes entrantes
-app.use((req, res, next) => {
+app.use((req, _res, next) => {
   console.log(`Requête reçue : ${req.method} ${req.url}`);
   next();
 });
 
 // GET / : ping
-app.get("/", (req, res) => {
+app.get("/", (_req, res) => {
   res.type("text/plain").send("Serveur Postify opérationnel ✅");
 });
 
 // GET /healthz : diagnostic variables
-app.get("/healthz", (req, res) => {
+app.get("/healthz", (_req, res) => {
   res.json({
     has_GOOGLE_CREDENTIALS: !!(
       process.env.GOOGLE_CREDENTIALS || process.env.GOOGLE_CREDENTIALS_B64
@@ -119,7 +154,7 @@ app.post("/download", async (req, res) => {
     const finalTitle = safeName(title || ytTitle);
     const tmpFile = path.join(os.tmpdir(), `${finalTitle}.mp3`);
 
-    // Transcodage en MP3 (par défaut 128 kbps — bon compromis taille/qualité)
+    // Transcodage en MP3 (par défaut 128 kbps)
     const audioStream = ytdl(url, {
       quality: "highestaudio",
       filter: "audioonly",
@@ -161,7 +196,7 @@ app.post("/download", async (req, res) => {
         requestBody: { role: "reader", type: "anyone" },
       });
     } catch (e) {
-      // si le dossier est déjà public, ça peut être déjà ok
+      // si le dossier est déjà public, c'est ok
     }
 
     const id = uploaded.data.id;
@@ -181,21 +216,7 @@ app.post("/download", async (req, res) => {
   }
 });
 
-// Preflight request handler
-app.options("*", (req, res) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  return res.sendStatus(204);
-});
-
 const PORT = Number(process.env.PORT || 8080);
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`✅ Postify server listening on port ${PORT}`);
-});
-
-const resp = await fetch(`${BACKEND_URL}/download`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ url, title }),
 });
