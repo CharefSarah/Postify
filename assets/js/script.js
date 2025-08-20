@@ -3,9 +3,23 @@
 // ========================
 // Tu peux surcharger en sauvegardant dans localStorage:
 // localStorage.setItem('postify_backend_url','https://ton-service.up.railway.app')
-let BACKEND_URL =
+// ========================
+//  CONFIG
+// ========================
+function normalizeBackendUrl(u) {
+  if (!u) return "";
+  // Si l'utilisateur a mis sans protocole, on force https
+  if (!/^https?:\/\//i.test(u)) u = "https://" + u;
+  // Retire le / final
+  return u.replace(/\/+$/, "");
+}
+
+// Tu peux toujours surcharger via localStorage:
+// localStorage.setItem('postify_backend_url','https://postify-production-a86f.up.railway.app')
+let BACKEND_URL = normalizeBackendUrl(
   localStorage.getItem("postify_backend_url") ||
-  "postify-production-a86f.up.railway.app";
+    "https://postify-production-a86f.up.railway.app"
+);
 
 // ========================
 //  STATE & AUDIO
