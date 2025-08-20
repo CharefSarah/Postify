@@ -1,5 +1,4 @@
 // server.js — Backend Postify (YouTube ➜ MP3 ➜ Google Drive)
-
 import express from "express";
 import cors from "cors";
 import { google } from "googleapis";
@@ -20,54 +19,38 @@ dotenv.config({ path: path.join(__dirname, ".env") });
 // ---- App
 const app = express();
 
-// ========================
-//  CORS — DOIT ÊTRE TOUT EN HAUT
-// ========================
-const ALLOWED_ORIGINS = [
-  "https://charefsarah.github.io",
-  "http://localhost:5500",
-  "http://127.0.0.1:5500",
-];
-
+/* =====================================================================
+   CORS SAFE-MODE (permissif pour débloquer le front GitHub Pages)
+   Place AVANT tout autre middleware/route
+===================================================================== */
 app.use((req, res, next) => {
+  // toujours varier par Origin pour les caches
   res.header("Vary", "Origin");
+  // permissif: autorise toutes origines (pas de cookies)
+  res.header("Access-Control-Allow-Origin", "*");
   next();
 });
 
 app.use(
   cors({
-    origin(origin, cb) {
-      if (!origin) return cb(null, true); // Postman/cURL
-      cb(null, ALLOWED_ORIGINS.includes(origin));
-    },
+    origin: true, // reflète l'Origin reçu si présent
     methods: ["GET", "POST", "OPTIONS"],
-    allowedHeaders: ["Content-Type"], // ajouter "x-postify-key" si clé d'accès
-    credentials: false, // true seulement si cookies
+    allowedHeaders: ["Content-Type"], // ajoute "x-postify-key" le jour où tu sécurises
+    credentials: false, // laisser false (sinon pas compatible avec '*')
   })
 );
 
-// Laisse le package 'cors' répondre aux preflights
+// Réponse globale aux preflights OPTIONS
 app.options("*", cors());
 
-// ========================
-//  PARSING
-// ========================
+/* =====================================================================
+   Parsing JSON
+===================================================================== */
 app.use(express.json({ limit: "1mb" }));
 
-// ========================
-//  Sécurité par clé (optionnel, à activer plus tard)
-// ========================
-// const ACCESS_KEY = process.env.ACCESS_KEY || "";
-// app.use((req, res, next) => {
-//   if (req.method === "OPTIONS" || req.path === "/" || req.path === "/healthz") return next();
-//   const key = req.get("x-postify-key");
-//   if (!ACCESS_KEY || (key && key === ACCESS_KEY)) return next();
-//   return res.status(401).json({ error: "Unauthorized" });
-// });
-
-// ========================
-//  Lecture des credentials Google
-// ========================
+/* =====================================================================
+   Lecture des credentials Google
+===================================================================== */
 let rawCreds = process.env.GOOGLE_CREDENTIALS;
 if (!rawCreds && process.env.GOOGLE_CREDENTIALS_B64) {
   try {
@@ -78,9 +61,7 @@ if (!rawCreds && process.env.GOOGLE_CREDENTIALS_B64) {
   } catch (_) {}
 }
 if (!rawCreds) {
-  console.error(
-    "❌ Variable GOOGLE_CREDENTIALS (ou GOOGLE_CREDENTIALS_B64) manquante"
-  );
+  console.error("❌ GOOGLE_CREDENTIALS ou GOOGLE_CREDENTIALS_B64 manquant");
   process.exit(1);
 }
 
@@ -89,7 +70,7 @@ try {
   creds = JSON.parse(rawCreds);
 } catch (err) {
   console.error(
-    "❌ Contenu de GOOGLE_CREDENTIALS invalide (JSON illisible):",
+    "❌ GOOGLE_CREDENTIALS invalide (JSON illisible):",
     err.message
   );
   process.exit(1);
@@ -97,20 +78,22 @@ try {
 
 const FOLDER_ID = process.env.FOLDER_ID;
 if (!FOLDER_ID) {
-  console.error(
-    "❌ Variable FOLDER_ID manquante (ID de ton dossier Google Drive)"
-  );
+  console.error("❌ FOLDER_ID manquant (ID de dossier Google Drive)");
   process.exit(1);
 }
 
-// ---- Auth Google Drive
+/* =====================================================================
+   Auth Google Drive
+===================================================================== */
 const auth = new google.auth.GoogleAuth({
   credentials: creds,
   scopes: ["https://www.googleapis.com/auth/drive.file"],
 });
 const drive = google.drive({ version: "v3", auth });
 
-// Petit helper: nom de fichier safe
+/* =====================================================================
+   Utils
+===================================================================== */
 function safeName(str, fallback = "audio") {
   const cleaned = (str || fallback)
     .replace(/[/\\?%*:|"<>]/g, "_")
@@ -120,11 +103,17 @@ function safeName(str, fallback = "audio") {
   return cleaned || fallback;
 }
 
-// Logger les requêtes entrantes
+/* =====================================================================
+   Logs requêtes
+===================================================================== */
 app.use((req, _res, next) => {
   console.log(`Requête reçue : ${req.method} ${req.url}`);
   next();
 });
+
+/* =====================================================================
+   Routes
+===================================================================== */
 
 // GET / : ping
 app.get("/", (_req, res) => {
@@ -141,7 +130,7 @@ app.get("/healthz", (_req, res) => {
   });
 });
 
-// POST /download { url, title? } -> upload sur Drive et renvoie lien
+// POST /download { url, title? } -> upload Drive & renvoie lien direct
 app.post("/download", async (req, res) => {
   const { url, title } = req.body || {};
   if (!url || !ytdl.validateURL(url)) {
@@ -154,7 +143,7 @@ app.post("/download", async (req, res) => {
     const finalTitle = safeName(title || ytTitle);
     const tmpFile = path.join(os.tmpdir(), `${finalTitle}.mp3`);
 
-    // Transcodage en MP3 (par défaut 128 kbps)
+    // Transcodage en MP3 (128 kbps)
     const audioStream = ytdl(url, {
       quality: "highestaudio",
       filter: "audioonly",
@@ -181,7 +170,7 @@ app.post("/download", async (req, res) => {
     const uploaded = await drive.files.create({
       resource: fileMeta,
       media,
-      fields: "id, name, webContentLink, webViewLink",
+      fields: "id,name,webContentLink,webViewLink",
     });
 
     // Nettoyage fichier temporaire
@@ -189,15 +178,13 @@ app.post("/download", async (req, res) => {
       fs.unlinkSync(tmpFile);
     } catch (_) {}
 
-    // Rendre le fichier public (lecture)
+    // Rendre public en lecture (si le dossier ne l'est pas déjà)
     try {
       await drive.permissions.create({
         fileId: uploaded.data.id,
         requestBody: { role: "reader", type: "anyone" },
       });
-    } catch (e) {
-      // si le dossier est déjà public, c'est ok
-    }
+    } catch (_) {}
 
     const id = uploaded.data.id;
     const directLink = `https://drive.google.com/uc?export=download&id=${id}`;
@@ -216,6 +203,9 @@ app.post("/download", async (req, res) => {
   }
 });
 
+/* =====================================================================
+   Démarrage serveur
+===================================================================== */
 const PORT = Number(process.env.PORT || 8080);
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`✅ Postify server listening on port ${PORT}`);
